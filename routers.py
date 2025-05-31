@@ -1,27 +1,31 @@
 from fastapi import APIRouter, HTTPException
-from models import User, UserCreate
-from data import users
+from schemas import User, UserCreate
+import crud
 
 router = APIRouter()
 
-@router.get("/users", response_model=list[User])
+@router.get("/users/", response_model=list[User])
 def get_users():
+    users = crud.get_all_users()
+    if not users:
+        raise HTTPException(status_code=404, detail="Користувачів не знайдено")
     return users
 
 @router.get("/users/{user_id}", response_model=User)
 def get_user(user_id: int):
-    for user in users:
-        if user.id == user_id:
-            return user
-    raise HTTPException(status_code=404, detail="Користувача не знайдено")
+    user = crud.get_user_by_id(user_id)
+    if user is None:
+        raise HTTPException(status_code=404, detail="Користувача не знайдено")
+    return user
 
-@router.post("/create_user", response_model=User)
-def create_user(user_data: UserCreate):
-    for existing_user in users:
-        if existing_user.email == user_data.email:
-            raise HTTPException(status_code=400, detail="Користувач з таким email вже існує")
+@router.post("/create_user/", response_model=User)
+def create_new_user(user: UserCreate):
+    existing_user = crud.get_user_by_email(user.email)
+    if existing_user:
+        raise HTTPException(status_code=400, detail="Користувач з таким email вже існує")
     
-    new_id = max(u.id for u in users) + 1 if users else 1
-    new_user = User(id=new_id, username=user_data.username, email=user_data.email)
-    users.append(new_user)
-    return new_user
+    existing_username = crud.get_user_by_username(user.username)
+    if existing_username:
+        raise HTTPException(status_code=400, detail="Користувач з таким username вже існує")
+    
+    return crud.create_user(user)
